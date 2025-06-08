@@ -6,18 +6,19 @@ void test_valid_utf8() {
     const char *text = "😀 汉字 🏳️‍⚧️"; /* emoji + Chinese chars + trans flag emoji */
     const char *p = text;
     char buf[4];
-    size_t len;
+    size_t len=0;
 
     printf("== test_valid_utf8 ==\n");
 
     while (p && *p) {
-        size_t cp_len = cutf8_copy(p, buf);
+        size_t cp_len = cutf8_copy(buf,p);
         if (cp_len == 0) {
             printf("Error copying valid UTF-8!\n");
             return;
         }
 
         /* echo to stdout */
+        len=0;
         if (cutf8_put(stdout, buf, &len) != 0) {
             printf("\nError writing valid codepoint\n");
             return;
@@ -40,7 +41,6 @@ void test_get_put_file() {
     int i;
     char expected[12]; /* should be enough for 3 UTF-8 codepoints */
     char actual[12];
-    int match = 1;
     size_t offset = 0;
 
     printf("== test_get_put_file ==\n");
@@ -53,10 +53,11 @@ void test_get_put_file() {
     }
 
     for (i = 0; i < 3 && p && *p; ++i) {
-        size_t copied = cutf8_copy(p, buf);
+        size_t copied = cutf8_copy(buf,p);
         memcpy(expected + offset, buf, copied);
         offset += copied;
 
+        len=0;
         if (cutf8_put(f, buf, &len) != 0) {
             printf("Error writing to file.\n");
             fclose(f);
@@ -91,6 +92,7 @@ void test_get_put_file() {
     remove(filename);
 }
 
+FILE* fmemopen(void* p, size_t size, const char* mode);
 
 void test_malformed_sequences() {
     const char *bad[] = {
@@ -122,6 +124,7 @@ void test_malformed_sequences() {
 
         FILE *mem = fmemopen((void *)p, strlen(p), "rb");
         if (mem) {
+            len=0;
             if (cutf8_get(mem, tmp, &len) != 0) {
                 printf("  get : correctly rejected\n");
             } else {

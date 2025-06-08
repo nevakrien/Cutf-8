@@ -1,6 +1,13 @@
 #ifndef CUTF8_H
 #define CUTF8_H
 
+/**
+ * This header works with utf8 and tries to provide a similar ish API to what you have with ASCI
+ * The goal is to allow for classic libc incremental parsing of taking 1 char at a time
+ * 
+ * If you find a BUG report it please
+ */
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -44,7 +51,13 @@ static int cutf8_valid(const char *s, int len) {
     return 1;
 }
 
+/**
+ * similar to get_c 
+ * writes the char into out [which needs 4 bytes extra room]
+ * and increments len acording to how much was written
+ */
 static int cutf8_get(FILE *file, char *out, size_t *len) {
+    int i;
     int c = fgetc(file);
     if (c == EOF) return EOF;
 
@@ -52,54 +65,66 @@ static int cutf8_get(FILE *file, char *out, size_t *len) {
     int total = cutf8_length((unsigned char)c);
     if (total == 0) return UTF8_ERROR;
 
-    for (int i = 1; i < total; ++i) {
+    for (i = 1; i < total; ++i) {
         c = fgetc(file);
         if (c == EOF || (c & 0xC0) != 0x80) return UTF8_ERROR;
         out[i] = (char)c;
     }
 
     if (!cutf8_valid(out, total)) return UTF8_ERROR;
-    *len = (size_t)total;
+    *len += (size_t)total;
     return 0;
 }
 
+/**
+ * similar to put_c 
+ * reads the char from in
+ * and increments len acording to how much was written to file
+ */
 static int cutf8_put(FILE *file, const char *input, size_t *size) {
+    int i;
     int len = cutf8_length((unsigned char)input[0]);
     if (len == 0 || !cutf8_valid(input, len)) return UTF8_ERROR;
 
-    for (int i = 0; i < len; ++i) {
+    for (i = 0; i < len; ++i) {
         if (fputc((unsigned char)input[i], file) == EOF)
-            return -1;
+            return EOF;
     }
 
-    if (size) *size = (size_t)len;
+    if (size) *size += (size_t)len;
     return 0;
 }
 
-static size_t cutf8_copy(const char *input, char *output) {
+/*copies a char from input to output*/
+static size_t cutf8_copy(char *output,const char *input) {
+    int i;
     char tmp[CUTF8_MAX_BYTES];
     int len = cutf8_length((unsigned char)input[0]);
     if (len == 0) return 0;
 
-    for (int i = 0; i < len; ++i) tmp[i] = input[i];
+    for (i = 0; i < len; ++i) tmp[i] = input[i];
     if (!cutf8_valid(tmp, len)) return 0;
-    for (int i = 0; i < len; ++i) output[i] = tmp[i];
+    for (i = 0; i < len; ++i) output[i] = tmp[i];
 
     return (size_t)len;
 }
 
+/**
+ * skips forward 1 char assuming null termination
+ * if the utf8 is not valid returns a NULL as well
+*/
 static char *cutf8_skip(const char *input) {
-    int len;
-    if (!input || input[0] == '\0') return 0;
+    int len, i;
+    if (!input || input[0] == '\0') return NULL;
 
     len = cutf8_length((unsigned char)input[0]);
     if (len == 0) return 0;
 
-    for (int i = 1; i < len; ++i)
+    for (i = 1; i < len; ++i)
         if ((input[i] & 0xC0) != 0x80)
             return 0;
 
-    if (!cutf8_valid(input, len)) return 0;
+    if (!cutf8_valid(input, len)) return NULL;
     return (char *)(input + len);
 }
 
