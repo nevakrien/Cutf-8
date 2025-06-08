@@ -5,6 +5,12 @@
  * This header works with utf8 and tries to provide a similar ish API to what you have with ASCI
  * The goal is to allow for classic libc incremental parsing of taking 1 char at a time
  * 
+ * 
+ * note that if you are using reads not made by this libarary 
+ * its generally a good idea to have your null terminators 4 bytes long to avoid acidental UB
+ * since cutf8_length into cutf8_valid will result in UB on invalid inputs with uninilized memory
+ * 
+ * 
  * If you find a BUG report it please
  */
 
@@ -118,11 +124,11 @@ static char *cutf8_skip(const char *input) {
     if (!input || input[0] == '\0') return NULL;
 
     len = cutf8_length((unsigned char)input[0]);
-    if (len == 0) return 0;
+    if (len == 0) return NULL;
 
     for (i = 1; i < len; ++i)
         if ((input[i] & 0xC0) != 0x80)
-            return 0;
+            return NULL;
 
     if (!cutf8_valid(input, len)) return NULL;
     return (char *)(input + len);
