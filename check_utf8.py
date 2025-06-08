@@ -15,12 +15,12 @@ def main():
             continue
 
         try:
-            raw.decode('utf-8')
+            s = raw.decode('utf-8')
             python_valid = True
-            # print("valid UTF8")
+            print(f"valid UTF8 len:{len(s)}")
         except UnicodeDecodeError:
             python_valid = False
-            # print("invalid UTF8")
+            print("invalid UTF8")
 
 
         if expected_valid != python_valid:
