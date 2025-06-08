@@ -2,7 +2,7 @@
 #define CUTF8_H
 
 /**
- * This header works with utf8 and tries to provide a similar ish API to what you have with ASCI
+ * This header works with utf8 and tries to provide a similar ish API to what you have with ASCII
  * The goal is to allow for classic libc incremental parsing of taking 1 char at a time
  * 
  * 
@@ -37,25 +37,52 @@ static int cutf8_length(unsigned char b0) {
 /* Decode codepoint and validate range */
 static int cutf8_valid(const char *s, int len) {
     uint32_t cp;
+    int i;
+
+    if (len < 1 || len > 4)
+        return 0;
+
+    for (i = 1; i < len; ++i)
+        if ((s[i] & 0xC0) != 0x80)
+            return 0;
+
     if (len == 1) {
         cp = (unsigned char)s[0];
     } else if (len == 2) {
         cp = ((s[0] & 0x1F) << 6) | (s[1] & 0x3F);
         if (cp < 0x80) return 0; /* overlong */
     } else if (len == 3) {
-        cp = ((s[0] & 0x0F) << 12) | ((s[1] & 0x3F) << 6) | (s[2] & 0x3F);
-        if (cp < 0x800) return 0;
-    } else if (len == 4) {
-        cp = ((s[0] & 0x07) << 18) | ((s[1] & 0x3F) << 12) |
-             ((s[2] & 0x3F) << 6) | (s[3] & 0x3F);
-        if (cp < 0x10000 || cp > 0x10FFFF) return 0;
+        cp = ((s[0] & 0x0F) << 12) |
+             ((s[1] & 0x3F) << 6) |
+             (s[2] & 0x3F);
+        if (cp < 0x800) return 0; /* overlong */
     } else {
-        return 0;
+        cp = ((s[0] & 0x07) << 18) |
+             ((s[1] & 0x3F) << 12) |
+             ((s[2] & 0x3F) << 6) |
+             (s[3] & 0x3F);
+        if (cp < 0x10000 || cp > 0x10FFFF)
+            return 0;
     }
 
-    if (cp >= 0xD800 && cp <= 0xDFFF) return 0; /* surrogate range */
+    if (cp >= 0xD800 && cp <= 0xDFFF) return 0;
     return 1;
 }
+
+/*validates an entire buffer*/
+static int cutf8_valid_buff(const char *input, size_t size) {
+    size_t i = 0;
+    while (i < size) {
+        int len = cutf8_length((unsigned char)input[i]);
+        if (len == 0 || i + (size_t)len > size)
+            return 0;
+        if (!cutf8_valid(input + i, len))
+            return 0;
+        i += (size_t)len;
+    }
+    return 1;
+}
+
 
 /**
  * similar to get_c 
